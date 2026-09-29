@@ -6,7 +6,7 @@ import streamlit as st
 import tempfile
 import os
 
-# Configuración de la página con diseño moderno y amigable
+# Configuración de la página
 st.set_page_config(
     page_title="Generador de Cotizaciones - HospiTech",
     page_icon="📄",
@@ -39,38 +39,54 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown('<p class="main-header">📋 Generador Profesional de Cotizaciones - B2G</p>', unsafe_allow_html=True)
-st.markdown("Rellena los datos organizados en pestañas y genera tu documento listo para descargar en PDF con el diseño institucional exacto.")
+st.markdown("Rellena los datos en las pestañas a continuación para generar tu cotización formal lista para descargar en PDF.")
 
 with st.form("cotizacion_form"):
-    # Creación de pestañas para una interfaz mucho más limpia y amigable
     tab1, tab2, tab3, tab4 = st.tabs(["🏢 1. Encabezado y Cliente", "📦 2. Ítems y Precios", "📝 3. Condiciones y Notas", "🏦 4. Bancos y Firmas"])
 
     with tab1:
         st.subheader("Información del Documento y Cliente")
         col1, col2 = st.columns(2)
         with col1:
-            nro_coti = st.text_input("Código de Cotización", value="COTI NT HOSPI-000970-2026")
-            cliente_nombre = st.text_input("Cliente / Entidad Pública", value="RED INTEGRADA DE SALUD PACIFICO NORTE")
-            referencia = st.text_input("Referencia", value="PEDIDO DE COMPRA")
+            nro_coti = st.text_input("Código de Cotización", placeholder="Ej. COTI NT HOSPI-000970-2026")
+            cliente_nombre = st.text_input("Cliente / Entidad Pública", placeholder="Ej. RED INTEGRADA DE SALUD PACIFICO NORTE")
+            referencia = st.text_input("Referencia", placeholder="Ej. PEDIDO DE COMPRA")
         with col2:
-            fecha_emision = st.text_input("Fecha de Emisión", value="Lima, 15 de mayo del 2026")
-            vendedor = st.text_input("Asesor Comercial (Venta)", value="YOSELIN ACERO")
-            celular_vendedor = st.text_input("Celular de Contacto", value="924367556 / 981622589")
+            fecha_emision = st.text_input("Fecha de Emisión", placeholder="Ej. Lima, 15 de mayo del 2026")
+            vendedor = st.text_input("Asesor Comercial (Venta)", placeholder="Ej. YOSELIN ACERO")
+            celular_vendedor = st.text_input("Celular de Contacto", placeholder="Ej. 924367556 / 981622589")
 
     with tab2:
-        st.subheader("Detalle del Producto o Servicio")
-        item_desc = st.text_area(
-            "Descripción Técnica Detallada", 
-            value="CAJA DE BIOSEGURIDAD DE 3L CON DISPOSITIVO\nMARCA: DESLAB\nPROCEDENCIA: NACIONAL\nESPECIFICACIONES TÉCNICAS:\n• Tapa de seguridad: Dispositivo de plástico con tapa hermética que evita la formación de aerosoles y derrames con retiro y extractor de agujas\n• Material: Cartón microcorrugado trilaminado 575 g/m2\nDIMENSIONES:\n• Espesor: 2 mm | Altura: 19 cm | Ancho: 15 cm | Largo: 11 cm",
-            height=150
-        )
-        col3, col4, col5 = st.columns(3)
-        with col3:
-            cantidad = st.number_input("Cantidad", value=6000, step=1)
-        with col4:
-            p_unit = st.number_input("Precio Unitario (S/)", value=5.12, format="%.2f")
-        with col5:
-            unidad_medida = st.text_input("Unidad de Medida", value="UND")
+        st.subheader("Detalle de Productos o Servicios")
+        st.markdown("Puedes agregar los ítems que requieras para tu cotización:")
+
+        # Sistema dinámico de ítems usando session_state dentro de Streamlit form
+        if 'num_items' not in st.session_state:
+            st.session_state.num_items = 1
+
+        # Botones para agregar o quitar filas de ítems de forma interactiva
+        col_btn1, col_btn2 = st.columns(2)
+        with col_btn1:
+            if st.form_submit_button("➕ Agregar otro ítem"):
+                st.session_state.num_items += 1
+        with col_btn2:
+            if st.session_state.num_items > 1:
+                if st.form_submit_button("➖ Quitar último ítem"):
+                    st.session_state.num_items -= 1
+
+        items_data = []
+        for i in range(st.session_state.num_items):
+            st.markdown(f"--- **Ítem {i+1}**")
+            desc = st.text_area(f"Descripción Técnica - Ítems {i+1}", placeholder="Ej. CAJA DE BIOSEGURIDAD...", key=f"desc_{i}", height=90)
+            c_col1, c_col2, c_col3 = st.columns(3)
+            with c_col1:
+                cant = st.number_input(f"Cantidad {i+1}", min_value=1.0, value=1.0, step=1.0, key=f"cant_{i}")
+            with c_col2:
+                p_u = st.number_input(f"Precio Unitario (S/) {i+1}", min_value=0.0, value=0.0, format="%.2f", key=f"p_u_{i}")
+            with c_col3:
+                und = st.text_input(f"Unidad {i+1}", value="UND", key=f"und_{i}")
+            
+            items_data.append({"desc": desc, "cant": cant, "p_u": p_u, "und": und})
 
     with tab3:
         st.subheader("Condiciones Comerciales y Notas")
@@ -109,26 +125,22 @@ with st.form("cotizacion_form"):
     submitted = st.form_submit_button("🚀 Generar y Descargar Cotización en PDF")
 
 if submitted:
-    subtotal = cantidad * p_unit
-
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
         pdf_path = tmp_file.name
 
-    # Configuración de documento PDF limpio y estilizado (sin barra lateral)
     doc = SimpleDocTemplate(pdf_path, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
     story = []
     styles = getSampleStyleSheet()
 
-    # Estilos tipográficos precisos y limpios
     header_left_style = ParagraphStyle('HeaderLeft', parent=styles['Normal'], fontSize=8.5, leading=11, textColor=colors.HexColor("#333333"))
     header_right_style = ParagraphStyle('HeaderRight', parent=styles['Normal'], fontSize=11, leading=14, fontName="Helvetica-Bold", textColor=colors.HexColor("#A81C1C"), alignment=2)
     normal_style = ParagraphStyle('NormalStyle', parent=styles['Normal'], fontSize=8.5, leading=11)
     bold_style = ParagraphStyle('BoldStyle', parent=styles['Normal'], fontSize=8.5, leading=11, fontName="Helvetica-Bold")
     table_header_style = ParagraphStyle('TableHead', parent=styles['Normal'], fontSize=8.5, leading=11, fontName="Helvetica-Bold", textColor=colors.white, alignment=1)
 
-    # Membrete Superior limpio tipo la segunda imagen
-    empresa_info = "<b>NEWTECH HOSPI S.A.C.</b><br/>RUC: " + ruc_empresa + "<br/>VENTANILLA - CALLAO<br/>Email: ventas@hospitechperu.com / nthospi@gmail.com"
-    doc_info = f"<b>{nro_coti}</b><br/><br/>Lima, 15 de mayo del 2026"
+    # Membrete Superior
+    empresa_info = f"<b>NEWTECH HOSPI S.A.C.</b><br/>RUC: {ruc_empresa}<br/>VENTANILLA - CALLAO<br/>Email: ventas@hospitechperu.com / nthospi@gmail.com"
+    doc_info = f"<b>{nro_coti}</b><br/><br/>{fecha_emision}"
 
     t_top = Table([[Paragraph(empresa_info, header_left_style), Paragraph(doc_info, header_right_style)]], colWidths=[330, 222])
     t_top.setStyle(TableStyle([
@@ -138,7 +150,7 @@ if submitted:
     story.append(t_top)
     story.append(Spacer(1, 5))
 
-    # Datos de Cliente y Venta
+    # Datos del Cliente
     client_data = [
         [Paragraph(f"<b>CLIENTE:</b> {cliente_nombre}", normal_style), Paragraph(f"<b>VENTA:</b> {vendedor}", normal_style)],
         [Paragraph(f"<b>REFERENCIA:</b> {referencia}", normal_style), Paragraph(f"<b>CELULAR:</b> {celular_vendedor}", normal_style)]
@@ -157,26 +169,37 @@ if submitted:
     story.append(Paragraph("Nos dirigimos a ustedes a fin de saludarlos y remitir la presente cotización por lo siguiente:", normal_style))
     story.append(Spacer(1, 6))
 
-    # Tabla Principal de Ítems
+    # Tabla de Ítems Dinámica
     table_items = [
-        [Paragraph("ITEM", table_header_style), Paragraph("DESCRIPCIÓN", table_header_style), Paragraph("CANT", table_header_style), Paragraph("UND", table_header_style), Paragraph("P. UNIT", table_header_style), Paragraph("P. TOTAL", table_header_style)],
-        ["01", Paragraph(item_desc.replace('\n', '<br/>'), normal_style), f"{cantidad}", f"{unidad_medida}", f"S/{p_unit:,.2f}", f"S/{subtotal:,.2f}"]
+        [Paragraph("ITEM", table_header_style), Paragraph("DESCRIPCIÓN", table_header_style), Paragraph("CANT", table_header_style), Paragraph("UND", table_header_style), Paragraph("P. UNIT", table_header_style), Paragraph("P. TOTAL", table_header_style)]
     ]
+
+    monto_total_general = 0.0
+    for idx, item in enumerate(items_data):
+        subtotal_item = item["cant"] * item["p_u"]
+        monto_total_general += subtotal_item
+        nro_item_str = f"{idx+1:02d}"
+        desc_para = Paragraph(item["desc"].replace('\n', '<br/>'), normal_style)
+        table_items.append([nro_item_str, desc_para, f"{int(item['cant']) if item['cant'].is_integer() else item['cant']}", item["und"], f"S/{item['p_u']:,.2f}", f"S/{subtotal_item:,.2f}"])
+
     t_items = Table(table_items, colWidths=[35, 302, 45, 35, 55, 80])
-    t_items.setStyle(TableStyle([
+    
+    # Estilo dinámico para los ítems según la cantidad de filas
+    ts = [
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#1A2B4C")),
         ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('ALIGN', (1,1), (1,1), 'LEFT'),
+        ('ALIGN', (1,1), (1,-1), 'LEFT'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#999999")),
         ('TOPPADDING', (0,0), (-1,-1), 6),
         ('BOTTOMPADDING', (0,0), (-1,-1), 6),
-    ]))
+    ]
+    t_items.setStyle(TableStyle(ts))
     story.append(t_items)
 
-    # Monto Total
+    # Monto Total General
     total_data = [
-        ["", "", "", "", "MONTO TOTAL:", f"S/{subtotal:,.2f}"]
+        ["", "", "", "", "MONTO TOTAL:", f"S/{monto_total_general:,.2f}"]
     ]
     t_total = Table(total_data, colWidths=[35, 302, 45, 35, 55, 80])
     t_total.setStyle(TableStyle([
@@ -192,7 +215,7 @@ if submitted:
     story.append(t_total)
     story.append(Spacer(1, 8))
 
-    # Condiciones de Venta (Con dos puntos perfectamente alineados)
+    # Condiciones de Venta
     cond_data = [
         [Paragraph("<b>CONDICIONES DE VENTA:</b>", bold_style), Paragraph("", normal_style)],
         [Paragraph("Precio", bold_style), Paragraph(": Los precios están dados en SOLES, incluyen el IGV.", normal_style)],
@@ -252,10 +275,10 @@ if submitted:
     with open(pdf_path, "rb") as f:
         pdf_bytes = f.read()
 
-    st.success("¡Cotización generada exitosamente con el diseño limpio!")
+    st.success("¡Cotización generada exitosamente!")
     st.download_button(
         label="📥 Descargar Cotización Oficial en PDF",
         data=pdf_bytes,
-        file_name=f"{nro_coti}.pdf",
+        file_name=f"{nro_coti if nro_coti else 'COTIZACION'}.pdf",
         mime="application/pdf"
     )
