@@ -1,5 +1,10 @@
 import streamlit as st
 from datetime import date
+from io import BytesIO
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
 
 # Configuración de la página
 st.set_page_config(
@@ -31,8 +36,74 @@ if 'descuentos' not in st.session_state:
 if 'envios' not in st.session_state:
     st.session_state.envios = []
 
-if 'cotizacion_creada' not in st.session_state:
-    st.session_state.cotizacion_creada = False
+# Función para generar el PDF en memoria
+def generar_pdf(nombre_empresa, num_cot, fecha_cot, cond_pago, dias_pago, vendedor, dir_facturacion, dir_envio, articulos, descuentos, envios, subtotal):
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
+    story = []
+    
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'TitleStyle',
+        parent=styles['Heading1'],
+        fontSize=20,
+        textColor=colors.HexColor('#1a1a1a'),
+        spaceAfter=15
+    )
+    normal_style = styles['Normal']
+    
+    # Cabecera
+    story.append(Paragraph("<b>COTIZACIÓN</b>", title_style))
+    story.append(Paragraph(f"<b>Empresa:</b> {nombre_empresa or 'N/A'}", normal_style))
+    story.append(Paragraph(f"<b>Nº de Cotización:</b> {num_cot}", normal_style))
+    story.append(Paragraph(f"<b>Fecha:</b> {fecha_cot.strftime('%d/%m/%Y')}", normal_style))
+    story.append(Paragraph(f"<b>Condiciones de pago:</b> {cond_pago} ({dias_pago} días)", normal_style))
+    story.append(Paragraph(f"<b>Vendedor:</b> {vendedor}", normal_style))
+    story.append(Spacer(1, 15))
+    
+    # Direcciones
+    story.append(Paragraph(f"<b>Dirección de facturación:</b> {dir_facturacion or 'N/A'}", normal_style))
+    story.append(Paragraph(f"<b>Dirección de envío:</b> {dir_envio or 'Igual a la de facturación'}", normal_style))
+    story.append(Spacer(1, 15))
+    
+    # Tabla de Artículos
+    data = [["Cant.", "Cód.", "Descripción", "Precio Unit.", "Impuesto", "Total"]]
+    for art in articulos:
+        tot_fila = art['cant'] * art['precio']
+        data.append([
+            str(art['cant']),
+            art['cod'] or '-',
+            art['desc'] or '-',
+            f"PEN {art['precio']:.2f}",
+            art['impuesto'],
+            f"PEN {tot_fila:.2f}"
+        ])
+        
+    for desc in descuentos:
+        data.append(["-", "Descuento", desc['desc'], f"-PEN {desc['monto']:.2f}", "-", f"-PEN {desc['monto']:.2f}"])
+        
+    for env in envios:
+        data.append(["-", "Envío", env['desc'], f"PEN {env['monto']:.2f}", "-", f"PEN {env['monto']:.2f}"])
+        
+    t = Table(data, colWidths=[40, 60, 200, 80, 60, 80])
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#736b63')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f7f5f0')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d3d3d3')),
+    ]))
+    story.append(t)
+    story.append(Spacer(1, 15))
+    
+    # Totales
+    story.append(Paragraph(f"<b>Total a pagar: PEN {subtotal:.2f}</b>", ParagraphStyle('TotalStyle', parent=normal_style, fontSize=14, alignment=2)))
+    
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
 
 # Título principal y enlace de ayuda superior derecha
 col_title, col_help = st.columns([6, 1])
@@ -129,31 +200,12 @@ for i, art in enumerate(st.session_state.articulos):
                 st.session_state.articulos.pop(i)
                 st.rerun()
 
-# Renderizar filas de descuentos si existen
-for i, desc in enumerate(st.session_state.descuentos):
-    col_d1, col_d2, col_d3 = st.columns([5.8, 1.5, 2.3])
-    with col_d1:
-        st.session_state.descuentos[i]['desc'] = st.text_input(f"Descuento_desc_{i}", value=desc['desc'], placeholder="Descripción del descuento", label_visibility="collapsed")
-    with col_d2:
-        st.session_state.descuentos[i]['monto'] = st.number_input(f"Descuento_monto_{i}", value=desc['monto'], format="%.2f", label_visibility="collapsed")
-        subtotal_general -= st.session_state.descuentos[i]['monto']
-    with col_d3:
-        if st.button("🗑️ Quitar Descuento", key=f"del_desc_{i}"):
-            st.session_state.descuentos.pop(i)
-            st.rerun()
+# Renderizar descuentos y envíos en el cálculo
+for desc in st.session_state.descuentos:
+    subtotal_general -= desc['monto']
 
-# Renderizar filas de envíos si existen
-for i, env in enumerate(st.session_state.envios):
-    col_e1, col_e2, col_e3 = st.columns([5.8, 1.5, 2.3])
-    with col_e1:
-        st.session_state.envios[i]['desc'] = st.text_input(f"Envio_desc_{i}", value=env['desc'], placeholder="Descripción del envío", label_visibility="collapsed")
-    with col_e2:
-        st.session_state.envios[i]['monto'] = st.number_input(f"Envio_monto_{i}", value=env['monto'], format="%.2f", label_visibility="collapsed")
-        subtotal_general += st.session_state.envios[i]['monto']
-    with col_e3:
-        if st.button("🗑️ Quitar Envío", key=f"del_env_{i}"):
-            st.session_state.envios.pop(i)
-            st.rerun()
+for env in st.session_state.envios:
+    subtotal_general += env['monto']
 
 st.write("")
 
@@ -197,28 +249,3 @@ with col_totales:
                 <span style="font-weight: bold; color: #111; font-size: 16px;">Total:</span>
                 <span style="font-weight: bold; color: #111; font-size: 16px;">PEN {subtotal_general:.2f}</span>
             </div>
-        </div>
-    """, unsafe_allow_html=True)
-
-st.write("")
-
-# Botones finales de comentarios y creación de cotización
-col_com, col_space, col_borrar, col_crear = st.columns([1.5, 2.5, 1.2, 1.5])
-
-with col_com:
-    if st.button("💬 Enviar comentarios"):
-        st.info("Formulario de comentarios abierto.")
-
-with col_borrar:
-    if st.button("Borrar cotización"):
-        st.session_state.articulos = [{'cant': 1, 'cod': '', 'desc': '', 'precio': 0.0, 'impuesto': 'IGV'}]
-        st.session_state.descuentos = []
-        st.session_state.envios = []
-        st.rerun()
-
-with col_crear:
-    if st.button("Crear Cotización ▾", type="primary"):
-        if not nombre_empresa:
-            st.warning("Por favor ingrese el nombre de la empresa.")
-        else:
-            st.success(f"¡Cotización Nº {num_cot} creada con éxito para {nombre_empresa} por un total de PEN {subtotal_general:.2f}!")
