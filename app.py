@@ -2,9 +2,11 @@ import streamlit as st
 from datetime import date
 from io import BytesIO
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
+from PIL import Image as PILImage
+import requests
 
 # Configuración de la página
 st.set_page_config(
@@ -36,8 +38,26 @@ if 'descuentos' not in st.session_state:
 if 'envios' not in st.session_state:
     st.session_state.envios = []
 
-# Función para generar el PDF en memoria
-def generar_pdf(nombre_empresa, num_cot, fecha_cot, cond_pago, dias_pago, vendedor, dir_facturacion, dir_envio, articulos, descuentos, envios, subtotal):
+if 'ruc_input' not in st.session_state:
+    st.session_state.ruc_input = ""
+
+if 'empresa_nombre' not in st.session_state:
+    st.session_state.empresa_nombre = ""
+
+if 'empresa_dir' not in st.session_state:
+    st.session_state.empresa_dir = ""
+
+# Función para consultar datos básicos de RUC en Perú (API pública o simulación rápida)
+def consultar_ruc(ruc):
+    # Puedes conectar aquí tu API preferida de RUC o DNI (ej: ApisNet, Facturalo, etc.)
+    # Por ahora realizamos una validación estándar y enlace directo de apoyo
+    if len(ruc) == 11 and ruc.isdigit():
+        # Ejemplo de consulta pública estándar de SUNAT vía enlace web directo
+        return True
+    return False
+
+# Función para generar el PDF en memoria con soporte para logotipo
+def generar_pdf(logo_file, nombre_empresa, num_cot, fecha_cot, cond_pago, dias_pago, vendedor, dir_facturacion, dir_envio, articulos, descuentos, envios, subtotal):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
     story = []
@@ -48,10 +68,22 @@ def generar_pdf(nombre_empresa, num_cot, fecha_cot, cond_pago, dias_pago, vended
         parent=styles['Heading1'],
         fontSize=20,
         textColor=colors.HexColor('#1a1a1a'),
-        spaceAfter=15
+        spaceAfter=10
     )
     normal_style = styles['Normal']
     
+    # Agregar logotipo al PDF si existe
+    if logo_file is not None:
+        try:
+            logo_img = PILImage.open(logo_file)
+            img_buffer = BytesIO()
+            logo_img.save(img_buffer, format="PNG")
+            img_buffer.seek(0)
+            story.append(RLImage(img_buffer, width=100, height=45))
+            story.append(Spacer(1, 10))
+        except Exception:
+            pass
+
     # Cabecera
     story.append(Paragraph("<b>COTIZACIÓN</b>", title_style))
     story.append(Paragraph(f"<b>Empresa:</b> {nombre_empresa or 'N/A'}", normal_style))
@@ -98,7 +130,6 @@ def generar_pdf(nombre_empresa, num_cot, fecha_cot, cond_pago, dias_pago, vended
     story.append(t)
     story.append(Spacer(1, 15))
     
-    # Totales
     story.append(Paragraph(f"<b>Total a pagar: PEN {subtotal:.2f}</b>", ParagraphStyle('TotalStyle', parent=normal_style, fontSize=14, alignment=2)))
     
     doc.build(story)
@@ -116,18 +147,28 @@ with col_help:
 col_logo, col_empresa, col_vacio, col_datos_izq = st.columns([1.2, 2.2, 0.3, 2.8])
 
 with col_logo:
-    st.markdown("""
-        <div style="border: 2px dashed #b0b0b0; padding: 30px 10px; text-align: center; color: #777777; border-radius: 4px; background-color: #faf8f5; height: 130px; display: flex; align-items: center; justify-content: center;">
-            + Añadir un logotipo
-        </div>
-    """, unsafe_allow_html=True)
+    uploaded_logo = st.file_uploader("+ Añadir un logotipo", type=["png", "jpg", "jpeg"], label_visibility="collapsed")
+    if uploaded_logo is not None:
+        st.image(uploaded_logo, width=120, caption="Logotipo cargado")
+    
     st.write("")
     cliente = st.selectbox("Cliente:", ["Seleccione cliente...", "Cliente 1", "Cliente 2"], label_visibility="collapsed")
     st.markdown("<p style='margin-top: -30px; font-size: 14px; color: #333;'>Cliente:</p>", unsafe_allow_html=True)
 
 with col_empresa:
-    nombre_empresa = st.text_input("Nombre de la empresa", placeholder="Nombre de la empresa", label_visibility="collapsed")
-    direccion_comercial = st.text_area("Dirección comercial", placeholder="Dirección comercial", height=85, label_visibility="collapsed")
+    # ── NUEVA SECCIÓN DE BÚSQUEDA RUC Y ENLACE DIRECTO SUNAT ──
+    st.markdown("<p style='font-size: 13px; font-weight: bold; margin-bottom: 2px;'>Búsqueda RUC / SUNAT:</p>", unsafe_allow_html=True)
+    
+    col_r1, col_r2 = st.columns([2, 1])
+    with col_r1:
+        st.session_state.ruc_input = st.text_input("RUC", value=st.session_state.ruc_input, placeholder="Nº de RUC (11 dígitos)", label_visibility="collapsed")
+    with col_r2:
+        # Enlace directo a la consulta oficial de SUNAT
+        sunat_url = f"https://e-consultaruc.sunat.gob.pe/cl-ti-itmrconsruc/jcrS00Alias?accion=consPorRuc&nrbRuc={st.session_state.ruc_input}" if len(st.session_state.ruc_input) == 11 else "https://e-consultaruc.sunat.gob.pe/cl-ti-itmrconsruc/jcrS00Alias"
+        st.markdown(f"<a href='{sunat_url}' target='_blank' style='display:inline-block; background-color:#0066cc; color:white; padding:6px 10px; border-radius:4px; text-decoration:none; font-size:12px; text-align:center; width:100%;'>🔍 Ver en SUNAT</a>", unsafe_allow_html=True)
+
+    nombre_empresa = st.text_input("Nombre de la empresa", value=st.session_state.empresa_nombre, placeholder="Nombre de la empresa o Razón Social", label_visibility="collapsed")
+    direccion_comercial = st.text_area("Dirección comercial", value=st.session_state.empresa_dir, placeholder="Dirección comercial", height=70, label_visibility="collapsed")
 
 with col_datos_izq:
     col_d1, col_d2 = st.columns([1, 1.3])
@@ -200,7 +241,6 @@ for i, art in enumerate(st.session_state.articulos):
                 st.session_state.articulos.pop(i)
                 st.rerun()
 
-# Renderizar descuentos y envíos en el cálculo
 for desc in st.session_state.descuentos:
     subtotal_general -= desc['monto']
 
@@ -266,12 +306,14 @@ with col_borrar:
         st.session_state.articulos = [{'cant': 1, 'cod': '', 'desc': '', 'precio': 0.0, 'impuesto': 'IGV'}]
         st.session_state.descuentos = []
         st.session_state.envios = []
+        st.session_state.ruc_input = ""
+        st.session_state.empresa_nombre = ""
+        st.session_state.empresa_dir = ""
         st.rerun()
 
 with col_crear:
-    # Generar el PDF en memoria para que aparezca el botón de descarga directa
     pdf_buffer = generar_pdf(
-        nombre_empresa, num_cot, fecha_cot, cond_pago, dias_pago, 
+        uploaded_logo, nombre_empresa, num_cot, fecha_cot, cond_pago, dias_pago, 
         vendedor, dir_facturacion, dir_envio, 
         st.session_state.articulos, st.session_state.descuentos, st.session_state.envios, 
         subtotal_general
@@ -279,7 +321,7 @@ with col_crear:
     
     st.download_button(
         label="📥 Descargar PDF",
-        data=pdf_buffer,
+        data=pdf_button if 'pdf_button' in locals() else pdf_buffer,
         file_name=f"Cotizacion_{num_cot}.pdf",
         mime="application/pdf",
         type="primary"
