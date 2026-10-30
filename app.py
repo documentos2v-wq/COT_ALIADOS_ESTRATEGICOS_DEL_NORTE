@@ -1,288 +1,173 @@
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
 import streamlit as st
-import tempfile
-import os
+from datetime import date
 
 # Configuración de la página
 st.set_page_config(
-    page_title="Generador de Cotizaciones - HospiTech",
+    page_title="Nueva Cotización",
     page_icon="📄",
     layout="wide"
 )
 
-# Estilo visual moderno para Streamlit
+# Estilos CSS personalizados para replicar la apariencia visual de la imagen
 st.markdown("""
     <style>
-    .main-header {
-        font-size: 24px;
-        font-weight: bold;
-        color: #1E3A8A;
-        text-align: center;
-        margin-bottom: 20px;
+    .main {
+        background-color: #f0ede6;
+    }
+    h1 {
+        color: #1a1a1a;
+        font-weight: 700;
     }
     .stButton>button {
-        background-color: #A81C1C;
+        background-color: #0066cc;
         color: white;
-        font-weight: bold;
-        width: 100%;
-        border-radius: 8px;
-        padding: 10px;
+        border-radius: 4px;
     }
-    .stButton>button:hover {
-        background-color: #801313;
-        color: white;
+    .create-btn>button {
+        background-color: #00aa00 !important;
+        color: white !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<p class="main-header">📋 Generador Profesional de Cotizaciones - B2G</p>', unsafe_allow_html=True)
-st.markdown("Rellena los datos en las pestañas a continuación para generar tu cotización formal lista para descargar en PDF.")
+# Título principal y enlace de ayuda superior derecha
+col_title, col_help = st.columns([6, 1])
+with col_title:
+    st.markdown("<h1>Nueva Cotización</h1>", unsafe_allow_html=True)
+with col_help:
+    st.markdown("<div style='text-align: right; padding-top: 15px;'><a href='#' target='_self'>Ayuda</a></div>", unsafe_allow_html=True)
 
-# Inicializar session_state para los ítems
-if 'num_items' not in st.session_state:
-    st.session_state.num_items = 1
+# Sección superior: Datos de empresa / logotipo y fechas
+col_logo, col_empresa, col_vacio, col_datos_izq = st.columns([1.2, 2.2, 0.3, 2.8])
 
-with st.form("cotizacion_form"):
-    tab1, tab2, tab3, tab4 = st.tabs(["🏢 1. Encabezado y Cliente", "📦 2. Ítems y Precios", "📝 3. Condiciones y Notas", "🏦 4. Bancos y Firmas"])
+with col_logo:
+    st.markdown("""
+        <div style="border: 2px dashed #b0b0b0; padding: 30px 10px; text-align: center; color: #777777; border-radius: 4px; background-color: #faf8f5; height: 130px; display: flex; align-items: center; justify-content: center;">
+            + Añadir un logotipo
+        </div>
+    """, unsafe_allow_html=True)
+    st.write("")
+    cliente = st.selectbox("Cliente:", ["Seleccione cliente...", "Cliente 1", "Cliente 2"], label_visibility="collapsed")
+    # Para alinear la etiqueta visualmente como en la imagen
+    st.markdown("<p style='margin-top: -30px; font-size: 14px; color: #333;'>Cliente:</p>", unsafe_allow_html=True)
 
-    with tab1:
-        st.subheader("Información del Documento y Cliente")
-        col1, col2 = st.columns(2)
-        with col1:
-            nro_coti = st.text_input("Código de Cotización", placeholder="Ej. COTI NT HOSPI-000970-2026")
-            cliente_nombre = st.text_input("Cliente / Entidad Pública", placeholder="Ej. RED INTEGRADA DE SALUD PACIFICO NORTE")
-            referencia = st.text_input("Referencia", placeholder="Ej. PEDIDO DE COMPRA")
-        with col2:
-            fecha_emision = st.text_input("Fecha de Emisión", placeholder="Ej. Lima, 15 de mayo del 2026")
-            vendedor = st.text_input("Asesor Comercial (Venta)", placeholder="Ej. YOSELIN ACERO")
-            celular_vendedor = st.text_input("Celular de Contacto", placeholder="Ej. 924367556 / 981622589")
+with col_empresa:
+    nombre_empresa = st.text_input("Nombre de la empresa", placeholder="Nombre de la empresa", label_visibility="collapsed")
+    direccion_comercial = st.text_area("Dirección comercial", placeholder="Dirección comercial", height=85, label_visibility="collapsed")
 
-    with tab2:
-        st.subheader("Detalle de Productos o Servicios")
-        st.markdown("Configura los ítems de tu cotización:")
-
-        items_data = []
-        for i in range(st.session_state.num_items):
-            st.markdown(f"--- **Ítem {i+1}**")
-            desc = st.text_area(f"Descripción Técnica - Ítem {i+1}", placeholder="Ej. CAJA DE BIOSEGURIDAD...", key=f"desc_{i}", height=80)
-            c_col1, c_col2, c_col3 = st.columns(3)
-            with c_col1:
-                cant = st.number_input(f"Cantidad {i+1}", min_value=1.0, value=1.0, step=1.0, key=f"cant_{i}")
-            with c_col2:
-                p_u = st.number_input(f"Precio Unitario (S/) {i+1}", min_value=0.0, value=0.0, format="%.2f", key=f"p_u_{i}")
-            with c_col3:
-                und = st.text_input(f"Unidad {i+1}", value="UND", key=f"und_{i}")
-            
-            items_data.append({"desc": desc, "cant": cant, "p_u": p_u, "und": und})
-
-    with tab3:
-        st.subheader("Condiciones Comerciales y Notas")
-        col6, col7 = st.columns(2)
-        with col6:
-            tiempo_entrega = st.text_input("Tiempo de Entrega", value="10 DÍAS CALENDARIOS contabilizado a partir del día siguiente de suscrito el contrato.")
-            forma_pago = st.text_input("Forma de Pago", value="abono en cuenta interbancaria (CCI) crédito comercial")
-        with col7:
-            garantia = st.text_input("Garantía", value="(12) meses a partir de la fecha de entrega y exclusivamente contra defectos de diseño o fabricación.")
-            validez_oferta = st.text_input("Validez de Oferta", value="10 días calendarios o hasta agotar stock.")
-
-        st.markdown("---")
-        nota_1 = st.text_input("Nota 1", value="Nuestra oferta está propensa a una nueva cotización en caso de modificaciones de las características técnicas o cantidades.")
-        nota_2 = st.text_input("Nota 2", value="Considerar la revisión de esta cotización a detalle, quien haga sus veces para dar la conformidad y se genere la orden de compra.")
-        nota_3 = st.text_input("Nota 3", value="Para proceder con la adquisición del bien, es necesario generar una orden de compra que nos permita formalizar y validar la operación.")
-        nota_4 = st.text_input("Nota 4", value="Antes de proceder a notificar la orden de compra, por favor comunicarse telefónicamente para verificar la disponibilidad de los productos.")
-
-    with tab4:
-        st.subheader("Cuentas Bancarias y Representante Legal")
-        banco_bcp_cta = st.text_input("CTA. CTE. SOLES BCP", value="192 2661210 0 08")
-        banco_bcp_cci = st.text_input("CCI SOLES BCP", value="002 192 002661210008 36")
+with col_datos_izq:
+    col_d1, col_d2 = st.columns([1, 1.3])
+    with col_d1:
+        st.markdown("<p style='margin-top: 8px;'>Fecha:</p>", unsafe_allow_html=True)
+        st.markdown("<p style='margin-top: 16px;'>Nº de Cotización:</p>", unsafe_allow_html=True)
+        st.markdown("<p style='margin-top: 16px;'>Condiciones de pago:</p>", unsafe_allow_html=True)
+        st.markdown("<p style='margin-top: 16px;'>Vendedor:</p>", unsafe_allow_html=True)
+    with col_d2:
+        fecha_cot = st.date_input("Fecha", value=date(2026, 10, 30), label_visibility="collapsed")
+        num_cot = st.text_input("Nº de Cotización", value="10001", label_visibility="collapsed")
         
-        col8, col9 = st.columns(2)
-        with col8:
-            telefonos_contacto = st.text_input("Teléfono de Contacto Pie", value="934115891")
-            ruc_empresa = st.text_input("RUC Empresa", value="20604321272")
-        with col9:
-            representante = st.text_input("Representante Legal", value="MARLON BECERRA HERNANDEZ")
-            cargo_representante = st.text_input("Cargo", value="GERENTE GENERAL")
+        col_cp1, col_cp2 = st.columns([1.3, 1])
+        with col_cp1:
+            cond_pago = st.selectbox("Condiciones de pago", ["Pago en días", "Contado", "Crédito"], label_visibility="collapsed")
+        with col_cp2:
+            dias_pago = st.number_input("Días", value=30, label_visibility="collapsed")
+            
+        vendedor = st.selectbox("Vendedor", ["Opcional", "Vendedor 1", "Vendedor 2"], label_visibility="collapsed")
 
-        pie_garantia_texto = st.text_input("Texto de pie de página", value="NEWTECH HOSPI S.A.C. garantiza la validez de sus propuestas comerciales solo si son emitidas desde nuestras cuentas autorizadas: ventas@hospitechperu.com / nthospi@gmail.com.")
+# Sección de direcciones de facturación y envío
+col_fact, col_env = st.columns(2)
+with col_fact:
+    st.text("Dirección de facturación:")
+    dir_facturacion = st.text_area("Dirección de facturación", placeholder="", height=70, label_visibility="collapsed")
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    submitted = st.form_submit_button("🚀 Generar y Descargar Cotización en PDF")
+with col_env:
+    st.text("Dirección de envío:")
+    dir_envio = st.text_area("Dirección de envío", placeholder="Déjelo en blanco si es igual que la dirección de facturación.", height=70, label_visibility="collapsed")
 
-# Botones para agregar o quitar filas fuera del formulario
-st.markdown("---")
-st.write("### Control de Ítems")
-col_btn1, col_btn2 = st.columns(2)
+st.write("---")
+
+# Cabecera de la tabla de artículos (Estilo barra marrón oscura)
+st.markdown("""
+    <div style="background-color: #736b63; padding: 10px; color: white; font-weight: bold; display: flex; justify-content: space-between; border-radius: 4px 4px 0 0; font-size: 14px;">
+        <span style="flex: 0.8;">Cant. ▾</span>
+        <span style="flex: 1.5;">Cód. artículo ▾</span>
+        <span style="flex: 3.5;">Descripción ▾</span>
+        <span style="flex: 1.5;">Precio unit... ▾</span>
+        <span style="flex: 1.5;">Impuesto ▾</span>
+        <span style="flex: 1.5;">Total ▾</span>
+    </div>
+""", unsafe_allow_html=True)
+
+# Fila interactiva de artículos
+col_t1, col_t2, col_t3, col_t4, col_t5, col_t6, col_t7 = st.columns([0.8, 1.5, 3.5, 1.5, 1.5, 1.5, 0.4])
+
+with col_t1:
+    cantidad = st.number_input("Cant.", value=1, min_value=1, label_visibility="collapsed")
+with col_t2:
+    cod_articulo = st.text_input("Cód.", value="", placeholder="Opcional", label_visibility="collapsed")
+with col_t3:
+    descripcion = st.text_input("Desc", value="", placeholder="Descripción", label_visibility="collapsed")
+with col_t4:
+    precio_unit = st.text_input("Precio", value="PEN 0.00", label_visibility="collapsed")
+with col_t5:
+    impuesto = st.selectbox("Impuesto", ["IGV", "Exonerado", "INA"], label_visibility="collapsed")
+with col_t6:
+    total_fila = st.text_input("Total", value="PEN 0.00", label_visibility="collapsed")
+with col_t7:
+    st.markdown("<div style='padding-top: 8px; font-size: 18px; cursor: pointer;'>❌</div>", unsafe_allow_html=True)
+
+st.write("")
+
+# Botones inferiores de acción para artículos / descuentos / envíos
+col_btn1, col_btn2, col_btn3, col_vacio2 = st.columns([1.5, 1.6, 1.5, 4.4])
 with col_btn1:
-    if st.button("➕ Agregar otro ítem"):
-        st.session_state.num_items += 1
-        st.rerun()
+    if st.button("+ Agregar artículo"):
+        pass
 with col_btn2:
-    if st.session_state.num_items > 1:
-        if st.button("➖ Quitar último ítem"):
-            st.session_state.num_items -= 1
-            st.rerun()
+    if st.button("+ Añadir descuento"):
+        pass
+with col_btn3:
+    if st.button("+ Añadir envío"):
+        pass
 
-if submitted:
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-        pdf_path = tmp_file.name
+st.write("")
 
-    doc = SimpleDocTemplate(pdf_path, pagesize=letter, rightMargin=25, leftMargin=25, topMargin=25, bottomMargin=25)
-    story = []
-    styles = getSampleStyleSheet()
+# Pestañas de notas y sección de totales a la derecha
+col_notas, col_totales = st.columns([1.2, 1])
 
-    header_left_style = ParagraphStyle('HeaderLeft', parent=styles['Normal'], fontSize=8, leading=10, textColor=colors.HexColor("#333333"))
-    header_right_style = ParagraphStyle('HeaderRight', parent=styles['Normal'], fontSize=10, leading=13, fontName="Helvetica-Bold", textColor=colors.HexColor("#A81C1C"), alignment=2)
-    normal_style = ParagraphStyle('NormalStyle', parent=styles['Normal'], fontSize=8, leading=10)
-    bold_style = ParagraphStyle('BoldStyle', parent=styles['Normal'], fontSize=8, leading=10, fontName="Helvetica-Bold")
-    
-    # Estilo compacto para las condiciones de venta
-    cond_normal_style = ParagraphStyle('CondNormal', parent=styles['Normal'], fontSize=7, leading=9, textColor=colors.HexColor("#333333"))
-    cond_bold_style = ParagraphStyle('CondBold', parent=styles['Normal'], fontSize=7, leading=9, fontName="Helvetica-Bold", textColor=colors.HexColor("#333333"))
+with col_notas:
+    tab_pub, tab_priv, tab_pie = st.tabs(["Nota pública", "Nota privada", "Nota al pie"])
+    with tab_pub:
+        nota_pub = st.text_area("Nota pública", placeholder="", height=90, label_visibility="collapsed")
+    with tab_priv:
+        nota_priv = st.text_area("Nota privada", placeholder="", height=90, label_visibility="collapsed")
+    with tab_pie:
+        nota_pie = st.text_area("Nota al pie", placeholder="", height=90, label_visibility="collapsed")
 
-    table_header_style = ParagraphStyle('TableHead', parent=styles['Normal'], fontSize=8, leading=10, fontName="Helvetica-Bold", textColor=colors.white, alignment=1)
+with col_totales:
+    st.markdown("""
+        <div style="background-color: #f7f5f0; padding: 15px; border-radius: 5px;">
+            <div style="display: flex; justify-content: space-between; padding-bottom: 8px; border-bottom: 1px solid #ddd;">
+                <span style="font-weight: 500; color: #333;">Subtotal:</span>
+                <span style="font-weight: 500; color: #333;">PEN 0.00</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding-top: 10px;">
+                <span style="font-weight: bold; color: #111; font-size: 16px;">Total:</span>
+                <span style="font-weight: bold; color: #111; font-size: 16px;">PEN 0.00</span>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
-    # Membrete Superior
-    empresa_info = f"<b>NEWTECH HOSPI S.A.C.</b><br/>RUC: {ruc_empresa}<br/>VENTANILLA - CALLAO<br/>Email: ventas@hospitechperu.com / nthospi@gmail.com"
-    doc_info = f"<b>{nro_coti}</b><br/><br/>{fecha_emision}"
+st.write("")
 
-    t_top = Table([[Paragraph(empresa_info, header_left_style), Paragraph(doc_info, header_right_style)]], colWidths=[350, 212])
-    t_top.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-    ]))
-    story.append(t_top)
-    story.append(Spacer(1, 4))
+# Botones finales de comentarios y creación de cotización
+col_com, col_space, col_borrar, col_crear = st.columns([1.5, 2.5, 1.2, 1.5])
 
-    # Datos del Cliente
-    client_data = [
-        [Paragraph(f"<b>CLIENTE:</b> {cliente_nombre}", normal_style), Paragraph(f"<b>VENTA:</b> {vendedor}", normal_style)],
-        [Paragraph(f"<b>REFERENCIA:</b> {referencia}", normal_style), Paragraph(f"<b>CELULAR:</b> {celular_vendedor}", normal_style)]
-    ]
-    t_client = Table(client_data, colWidths=[370, 192])
-    t_client.setStyle(TableStyle([
-        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor("#999999")),
-        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CCCCCC")),
-        ('TOPPADDING', (0,0), (-1,-1), 4),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-        ('LEFTPADDING', (0,0), (-1,-1), 6),
-    ]))
-    story.append(t_client)
-    story.append(Spacer(1, 6))
+with col_com:
+    st.button("💬 Enviar comentarios")
 
-    story.append(Paragraph("Nos dirigimos a ustedes a fin de saludarlos y remitir la presente cotización por lo siguiente:", normal_style))
-    story.append(Spacer(1, 4))
+with col_borrar:
+    st.button("Borrar cotización")
 
-    # Tabla de Ítems Dinámica
-    table_items = [
-        [Paragraph("ITEM", table_header_style), Paragraph("DESCRIPCIÓN", table_header_style), Paragraph("CANT", table_header_style), Paragraph("UND", table_header_style), Paragraph("P. UNIT", table_header_style), Paragraph("P. TOTAL", table_header_style)]
-    ]
-
-    monto_total_general = 0.0
-    for idx, item in enumerate(items_data):
-        subtotal_item = item["cant"] * item["p_u"]
-        monto_total_general += subtotal_item
-        nro_item_str = f"{idx+1:02d}"
-        desc_para = Paragraph(item["desc"].replace('\n', '<br/>'), normal_style)
-        table_items.append([nro_item_str, desc_para, f"{int(item['cant']) if item['cant'].is_integer() else item['cant']}", item["und"], f"S/{item['p_u']:,.2f}", f"S/{subtotal_item:,.2f}"])
-
-    t_items = Table(table_items, colWidths=[30, 317, 45, 35, 55, 80])
-    
-    ts = [
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#1A2B4C")),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('ALIGN', (1,1), (1,-1), 'LEFT'),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#999999")),
-        ('TOPPADDING', (0,0), (-1,-1), 4),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-    ]
-    t_items.setStyle(TableStyle(ts))
-    story.append(t_items)
-
-    # Monto Total General
-    total_data = [
-        ["", "", "", "", "MONTO TOTAL:", f"S/{monto_total_general:,.2f}"]
-    ]
-    t_total = Table(total_data, colWidths=[30, 317, 45, 35, 55, 80])
-    t_total.setStyle(TableStyle([
-        ('BACKGROUND', (4,0), (5,0), colors.HexColor("#EFEFEF")),
-        ('FONTNAME', (4,0), (-1,-1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,-1), 8),
-        ('ALIGN', (4,0), (4,0), 'RIGHT'),
-        ('ALIGN', (5,0), (5,0), 'CENTER'),
-        ('GRID', (4,0), (-1,-1), 0.5, colors.HexColor("#999999")),
-        ('TOPPADDING', (0,0), (-1,-1), 4),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-    ]))
-    story.append(t_total)
-    story.append(Spacer(1, 10))
-
-    # 1. BLOQUE DE BANCOS Y FIRMAS (Movido hacia arriba, justo debajo del total)
-    banco_text = f"""
-    <b>CTA. CORRIENTE SOLES BCP:</b> {banco_bcp_cta}<br/>
-    <b>CODIGO. CCI. SOLES BCP:</b> {banco_bcp_cci}<br/>
-    <b>TELÉFONO:</b> {telefonos_contacto} | <b>R.U.C.:</b> {ruc_empresa}
-    """
-    
-    firma_text = f"""
-    <b>NEWTECH HOSPI S.A.C.</b><br/>
-    <b>R.U.C. {ruc_empresa}</b><br/><br/>
-    <b>{representante}</b><br/>
-    <b>{cargo_representante}</b>
-    """
-
-    footer_data = [
-        [Paragraph(banco_text, normal_style), Paragraph(firma_text, ParagraphStyle('Firma', parent=normal_style, alignment=1))]
-    ]
-    t_footer = Table(footer_data, colWidths=[330, 232])
-    t_footer.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('TOPPADDING', (0,0), (-1,-1), 2),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
-    ]))
-    story.append(t_footer)
-    story.append(Spacer(1, 10))
-
-    # 2. CONDICIONES DE VENTA (Movido hacia la parte inferior, antes del pie de página)
-    cond_data = [
-        [Paragraph("<b>CONDICIONES DE VENTA:</b>", cond_bold_style), Paragraph("", cond_normal_style)],
-        [Paragraph("Precio", cond_bold_style), Paragraph(": Los precios están dados en SOLES, incluyen el IGV.", cond_normal_style)],
-        [Paragraph("Tiempo de entrega", cond_bold_style), Paragraph(f": {tiempo_entrega}", cond_normal_style)],
-        [Paragraph("Forma de pago", cond_bold_style), Paragraph(f": {forma_pago}", cond_normal_style)],
-        [Paragraph("Garantía", cond_bold_style), Paragraph(f": {garantia}", cond_normal_style)],
-        [Paragraph("Validez de oferta", cond_bold_style), Paragraph(f": {validez_oferta}", cond_normal_style)],
-        [Paragraph("Nota 1", cond_bold_style), Paragraph(f": {nota_1}", cond_normal_style)],
-        [Paragraph("Nota 2", cond_bold_style), Paragraph(f": {nota_2}", cond_normal_style)],
-        [Paragraph("Nota 3", cond_bold_style), Paragraph(f": {nota_3}", cond_normal_style)],
-        [Paragraph("NOTA 4", cond_bold_style), Paragraph(f": {nota_4}", cond_normal_style)],
-    ]
-    t_cond = Table(cond_data, colWidths=[90, 472])
-    t_cond.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#EFEFEF")),
-        ('TOPPADDING', (0,0), (-1,-1), 2),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
-    ]))
-    story.append(t_cond)
-    story.append(Spacer(1, 6))
-
-    # Pie de página final
-    pie_text = f"<font size=6.5 color='#666666'><i>{pie_garantia_texto}</i></font>"
-    story.append(Paragraph(pie_text, ParagraphStyle('Pie', parent=normal_style, alignment=1)))
-
-    doc.build(story)
-
-    with open(pdf_path, "rb") as f:
-        pdf_bytes = f.read()
-
-    st.success("¡Cotización generada exitosamente!")
-    st.download_button(
-        label="📥 Descargar Cotización Oficial en PDF",
-        data=pdf_bytes,
-        file_name=f"{nro_coti if nro_coti else 'COTIZACION'}.pdf",
-        mime="application/pdf"
-    )
+with col_crear:
+    st.button("Crear Cotización ▾", type="primary")
