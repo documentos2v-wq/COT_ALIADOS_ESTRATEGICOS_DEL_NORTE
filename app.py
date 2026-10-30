@@ -8,7 +8,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Estilos CSS personalizados para replicar la apariencia visual de la imagen
+# Estilos CSS personalizados
 st.markdown("""
     <style>
     .main {
@@ -18,17 +18,21 @@ st.markdown("""
         color: #1a1a1a;
         font-weight: 700;
     }
-    .stButton>button {
-        background-color: #0066cc;
-        color: white;
-        border-radius: 4px;
-    }
-    .create-btn>button {
-        background-color: #00aa00 !important;
-        color: white !important;
-    }
     </style>
 """, unsafe_allow_html=True)
+
+# Inicializar el estado de la sesión para los elementos dinámicos
+if 'articulos' not in st.session_state:
+    st.session_state.articulos = [{'cant': 1, 'cod': '', 'desc': '', 'precio': 0.0, 'impuesto': 'IGV'}]
+
+if 'descuentos' not in st.session_state:
+    st.session_state.descuentos = []
+
+if 'envios' not in st.session_state:
+    st.session_state.envios = []
+
+if 'cotizacion_creada' not in st.session_state:
+    st.session_state.cotizacion_creada = False
 
 # Título principal y enlace de ayuda superior derecha
 col_title, col_help = st.columns([6, 1])
@@ -48,7 +52,6 @@ with col_logo:
     """, unsafe_allow_html=True)
     st.write("")
     cliente = st.selectbox("Cliente:", ["Seleccione cliente...", "Cliente 1", "Cliente 2"], label_visibility="collapsed")
-    # Para alinear la etiqueta visualmente como en la imagen
     st.markdown("<p style='margin-top: -30px; font-size: 14px; color: #333;'>Cliente:</p>", unsafe_allow_html=True)
 
 with col_empresa:
@@ -86,7 +89,7 @@ with col_env:
 
 st.write("---")
 
-# Cabecera de la tabla de artículos (Estilo barra marrón oscura)
+# Cabecera de la tabla de artículos
 st.markdown("""
     <div style="background-color: #736b63; padding: 10px; color: white; font-weight: bold; display: flex; justify-content: space-between; border-radius: 4px 4px 0 0; font-size: 14px;">
         <span style="flex: 0.8;">Cant. ▾</span>
@@ -98,23 +101,59 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Fila interactiva de artículos
-col_t1, col_t2, col_t3, col_t4, col_t5, col_t6, col_t7 = st.columns([0.8, 1.5, 3.5, 1.5, 1.5, 1.5, 0.4])
+# Renderizar filas de artículos dinámicamente
+subtotal_general = 0.0
 
-with col_t1:
-    cantidad = st.number_input("Cant.", value=1, min_value=1, label_visibility="collapsed")
-with col_t2:
-    cod_articulo = st.text_input("Cód.", value="", placeholder="Opcional", label_visibility="collapsed")
-with col_t3:
-    descripcion = st.text_input("Desc", value="", placeholder="Descripción", label_visibility="collapsed")
-with col_t4:
-    precio_unit = st.text_input("Precio", value="PEN 0.00", label_visibility="collapsed")
-with col_t5:
-    impuesto = st.selectbox("Impuesto", ["IGV", "Exonerado", "INA"], label_visibility="collapsed")
-with col_t6:
-    total_fila = st.text_input("Total", value="PEN 0.00", label_visibility="collapsed")
-with col_t7:
-    st.markdown("<div style='padding-top: 8px; font-size: 18px; cursor: pointer;'>❌</div>", unsafe_allow_html=True)
+for i, art in enumerate(st.session_state.articulos):
+    col_t1, col_t2, col_t3, col_t4, col_t5, col_t6, col_t7 = st.columns([0.8, 1.5, 3.5, 1.5, 1.5, 1.5, 0.4])
+    
+    with col_t1:
+        st.session_state.articulos[i]['cant'] = st.number_input(f"Cant_{i}", value=art['cant'], min_value=1, label_visibility="collapsed")
+    with col_t2:
+        st.session_state.articulos[i]['cod'] = st.text_input(f"Cod_{i}", value=art['cod'], placeholder="Opcional", label_visibility="collapsed")
+    with col_t3:
+        st.session_state.articulos[i]['desc'] = st.text_input(f"Desc_{i}", value=art['desc'], placeholder="Descripción", label_visibility="collapsed")
+    with col_t4:
+        st.session_state.articulos[i]['precio'] = st.number_input(f"Precio_{i}", value=art['precio'], min_value=0.0, format="%.2f", label_visibility="collapsed")
+    with col_t5:
+        st.session_state.articulos[i]['impuesto'] = st.selectbox(f"Imp_{i}", ["IGV", "Exonerado", "INA"], index=["IGV", "Exonerado", "INA"].index(art['impuesto']), label_visibility="collapsed")
+    
+    total_fila = st.session_state.articulos[i]['cant'] * st.session_state.articulos[i]['precio']
+    subtotal_general += total_fila
+    
+    with col_t6:
+        st.markdown(f"<div style='padding-top: 8px; font-weight: 500;'>PEN {total_fila:.2f}</div>", unsafe_allow_html=True)
+    with col_t7:
+        if len(st.session_state.articulos) > 1:
+            if st.button("❌", key=f"del_art_{i}"):
+                st.session_state.articulos.pop(i)
+                st.rerun()
+
+# Renderizar filas de descuentos si existen
+for i, desc in enumerate(st.session_state.descuentos):
+    col_d1, col_d2, col_d3 = st.columns([5.8, 1.5, 2.3])
+    with col_d1:
+        st.session_state.descuentos[i]['desc'] = st.text_input(f"Descuento_desc_{i}", value=desc['desc'], placeholder="Descripción del descuento", label_visibility="collapsed")
+    with col_d2:
+        st.session_state.descuentos[i]['monto'] = st.number_input(f"Descuento_monto_{i}", value=desc['monto'], format="%.2f", label_visibility="collapsed")
+        subtotal_general -= st.session_state.descuentos[i]['monto']
+    with col_d3:
+        if st.button("🗑️ Quitar Descuento", key=f"del_desc_{i}"):
+            st.session_state.descuentos.pop(i)
+            st.rerun()
+
+# Renderizar filas de envíos si existen
+for i, env in enumerate(st.session_state.envios):
+    col_e1, col_e2, col_e3 = st.columns([5.8, 1.5, 2.3])
+    with col_e1:
+        st.session_state.envios[i]['desc'] = st.text_input(f"Envio_desc_{i}", value=env['desc'], placeholder="Descripción del envío", label_visibility="collapsed")
+    with col_e2:
+        st.session_state.envios[i]['monto'] = st.number_input(f"Envio_monto_{i}", value=env['monto'], format="%.2f", label_visibility="collapsed")
+        subtotal_general += st.session_state.envios[i]['monto']
+    with col_e3:
+        if st.button("🗑️ Quitar Envío", key=f"del_env_{i}"):
+            st.session_state.envios.pop(i)
+            st.rerun()
 
 st.write("")
 
@@ -122,13 +161,16 @@ st.write("")
 col_btn1, col_btn2, col_btn3, col_vacio2 = st.columns([1.5, 1.6, 1.5, 4.4])
 with col_btn1:
     if st.button("+ Agregar artículo"):
-        pass
+        st.session_state.articulos.append({'cant': 1, 'cod': '', 'desc': '', 'precio': 0.0, 'impuesto': 'IGV'})
+        st.rerun()
 with col_btn2:
     if st.button("+ Añadir descuento"):
-        pass
+        st.session_state.descuentos.append({'desc': 'Descuento', 'monto': 0.0})
+        st.rerun()
 with col_btn3:
     if st.button("+ Añadir envío"):
-        pass
+        st.session_state.envios.append({'desc': 'Envío', 'monto': 0.0})
+        st.rerun()
 
 st.write("")
 
@@ -145,15 +187,15 @@ with col_notas:
         nota_pie = st.text_area("Nota al pie", placeholder="", height=90, label_visibility="collapsed")
 
 with col_totales:
-    st.markdown("""
+    st.markdown(f"""
         <div style="background-color: #f7f5f0; padding: 15px; border-radius: 5px;">
             <div style="display: flex; justify-content: space-between; padding-bottom: 8px; border-bottom: 1px solid #ddd;">
                 <span style="font-weight: 500; color: #333;">Subtotal:</span>
-                <span style="font-weight: 500; color: #333;">PEN 0.00</span>
+                <span style="font-weight: 500; color: #333;">PEN {subtotal_general:.2f}</span>
             </div>
             <div style="display: flex; justify-content: space-between; padding-top: 10px;">
                 <span style="font-weight: bold; color: #111; font-size: 16px;">Total:</span>
-                <span style="font-weight: bold; color: #111; font-size: 16px;">PEN 0.00</span>
+                <span style="font-weight: bold; color: #111; font-size: 16px;">PEN {subtotal_general:.2f}</span>
             </div>
         </div>
     """, unsafe_allow_html=True)
@@ -164,10 +206,19 @@ st.write("")
 col_com, col_space, col_borrar, col_crear = st.columns([1.5, 2.5, 1.2, 1.5])
 
 with col_com:
-    st.button("💬 Enviar comentarios")
+    if st.button("💬 Enviar comentarios"):
+        st.info("Formulario de comentarios abierto.")
 
 with col_borrar:
-    st.button("Borrar cotización")
+    if st.button("Borrar cotización"):
+        st.session_state.articulos = [{'cant': 1, 'cod': '', 'desc': '', 'precio': 0.0, 'impuesto': 'IGV'}]
+        st.session_state.descuentos = []
+        st.session_state.envios = []
+        st.rerun()
 
 with col_crear:
-    st.button("Crear Cotización ▾", type="primary")
+    if st.button("Crear Cotización ▾", type="primary"):
+        if not nombre_empresa:
+            st.warning("Por favor ingrese el nombre de la empresa.")
+        else:
+            st.success(f"¡Cotización Nº {num_cot} creada con éxito para {nombre_empresa} por un total de PEN {subtotal_general:.2f}!")
