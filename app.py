@@ -96,7 +96,6 @@ with st.form("cotizacion_form"):
 
     with tab4:
         st.subheader("Cuentas Bancarias y Representante Legal")
-        # Se eliminaron los campos de BBVA y se mantiene BCP
         banco_bcp_cta = st.text_input("CTA. CTE. SOLES BCP", value="192 2661210 0 08")
         banco_bcp_cci = st.text_input("CCI SOLES BCP", value="002 192 002661210008 36")
         
@@ -131,18 +130,16 @@ if submitted:
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
         pdf_path = tmp_file.name
 
-    # Márgenes optimizados para aprovechar mejor la hoja
     doc = SimpleDocTemplate(pdf_path, pagesize=letter, rightMargin=25, leftMargin=25, topMargin=25, bottomMargin=25)
     story = []
     styles = getSampleStyleSheet()
 
-    # Estilos optimizados y compactos
     header_left_style = ParagraphStyle('HeaderLeft', parent=styles['Normal'], fontSize=8, leading=10, textColor=colors.HexColor("#333333"))
     header_right_style = ParagraphStyle('HeaderRight', parent=styles['Normal'], fontSize=10, leading=13, fontName="Helvetica-Bold", textColor=colors.HexColor("#A81C1C"), alignment=2)
     normal_style = ParagraphStyle('NormalStyle', parent=styles['Normal'], fontSize=8, leading=10)
     bold_style = ParagraphStyle('BoldStyle', parent=styles['Normal'], fontSize=8, leading=10, fontName="Helvetica-Bold")
     
-    # Estilo más pequeño y compacto para las condiciones de venta
+    # Estilo compacto para las condiciones de venta
     cond_normal_style = ParagraphStyle('CondNormal', parent=styles['Normal'], fontSize=7, leading=9, textColor=colors.HexColor("#333333"))
     cond_bold_style = ParagraphStyle('CondBold', parent=styles['Normal'], fontSize=7, leading=9, fontName="Helvetica-Bold", textColor=colors.HexColor("#333333"))
 
@@ -222,32 +219,9 @@ if submitted:
         ('BOTTOMPADDING', (0,0), (-1,-1), 4),
     ]))
     story.append(t_total)
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 10))
 
-    # Condiciones de Venta con letra más pequeña y compacta
-    cond_data = [
-        [Paragraph("<b>CONDICIONES DE VENTA:</b>", cond_bold_style), Paragraph("", cond_normal_style)],
-        [Paragraph("Precio", cond_bold_style), Paragraph(": Los precios están dados en SOLES, incluyen el IGV.", cond_normal_style)],
-        [Paragraph("Tiempo de entrega", cond_bold_style), Paragraph(f": {tiempo_entrega}", cond_normal_style)],
-        [Paragraph("Forma de pago", cond_bold_style), Paragraph(f": {forma_pago}", cond_normal_style)],
-        [Paragraph("Garantía", cond_bold_style), Paragraph(f": {garantia}", cond_normal_style)],
-        [Paragraph("Validez de oferta", cond_bold_style), Paragraph(f": {validez_oferta}", cond_normal_style)],
-        [Paragraph("Nota 1", cond_bold_style), Paragraph(f": {nota_1}", cond_normal_style)],
-        [Paragraph("Nota 2", cond_bold_style), Paragraph(f": {nota_2}", cond_normal_style)],
-        [Paragraph("Nota 3", cond_bold_style), Paragraph(f": {nota_3}", cond_normal_style)],
-        [Paragraph("NOTA 4", cond_bold_style), Paragraph(f": {nota_4}", cond_normal_style)],
-    ]
-    t_cond = Table(cond_data, colWidths=[90, 472])
-    t_cond.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#EFEFEF")),
-        ('TOPPADDING', (0,0), (-1,-1), 2),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
-    ]))
-    story.append(t_cond)
-    story.append(Spacer(1, 6))
-
-    # Cuentas Bancarias (Solo BCP) y Firmas optimizadas
+    # 1. BLOQUE DE BANCOS Y FIRMAS (Movido hacia arriba, justo debajo del total)
     banco_text = f"""
     <b>CTA. CORRIENTE SOLES BCP:</b> {banco_bcp_cta}<br/>
     <b>CODIGO. CCI. SOLES BCP:</b> {banco_bcp_cci}<br/>
@@ -271,9 +245,32 @@ if submitted:
         ('BOTTOMPADDING', (0,0), (-1,-1), 2),
     ]))
     story.append(t_footer)
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 10))
 
-    # Pie de página final más compacto
+    # 2. CONDICIONES DE VENTA (Movido hacia la parte inferior, antes del pie de página)
+    cond_data = [
+        [Paragraph("<b>CONDICIONES DE VENTA:</b>", cond_bold_style), Paragraph("", cond_normal_style)],
+        [Paragraph("Precio", cond_bold_style), Paragraph(": Los precios están dados en SOLES, incluyen el IGV.", cond_normal_style)],
+        [Paragraph("Tiempo de entrega", cond_bold_style), Paragraph(f": {tiempo_entrega}", cond_normal_style)],
+        [Paragraph("Forma de pago", cond_bold_style), Paragraph(f": {forma_pago}", cond_normal_style)],
+        [Paragraph("Garantía", cond_bold_style), Paragraph(f": {garantia}", cond_normal_style)],
+        [Paragraph("Validez de oferta", cond_bold_style), Paragraph(f": {validez_oferta}", cond_normal_style)],
+        [Paragraph("Nota 1", cond_bold_style), Paragraph(f": {nota_1}", cond_normal_style)],
+        [Paragraph("Nota 2", cond_bold_style), Paragraph(f": {nota_2}", cond_normal_style)],
+        [Paragraph("Nota 3", cond_bold_style), Paragraph(f": {nota_3}", cond_normal_style)],
+        [Paragraph("NOTA 4", cond_bold_style), Paragraph(f": {nota_4}", cond_normal_style)],
+    ]
+    t_cond = Table(cond_data, colWidths=[90, 472])
+    t_cond.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#EFEFEF")),
+        ('TOPPADDING', (0,0), (-1,-1), 2),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+    ]))
+    story.append(t_cond)
+    story.append(Spacer(1, 6))
+
+    # Pie de página final
     pie_text = f"<font size=6.5 color='#666666'><i>{pie_garantia_texto}</i></font>"
     story.append(Paragraph(pie_text, ParagraphStyle('Pie', parent=normal_style, alignment=1)))
 
