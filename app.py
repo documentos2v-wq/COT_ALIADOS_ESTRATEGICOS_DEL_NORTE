@@ -41,6 +41,10 @@ st.markdown("""
 st.markdown('<p class="main-header">📋 Generador Profesional de Cotizaciones - B2G</p>', unsafe_allow_html=True)
 st.markdown("Rellena los datos en las pestañas a continuación para generar tu cotización formal lista para descargar en PDF.")
 
+# Inicializar session_state para los ítems
+if 'num_items' not in st.session_state:
+    st.session_state.num_items = 1
+
 with st.form("cotizacion_form"):
     tab1, tab2, tab3, tab4 = st.tabs(["🏢 1. Encabezado y Cliente", "📦 2. Ítems y Precios", "📝 3. Condiciones y Notas", "🏦 4. Bancos y Firmas"])
 
@@ -58,26 +62,12 @@ with st.form("cotizacion_form"):
 
     with tab2:
         st.subheader("Detalle de Productos o Servicios")
-        st.markdown("Puedes agregar los ítems que requieras para tu cotización:")
-
-        # Sistema dinámico de ítems usando session_state dentro de Streamlit form
-        if 'num_items' not in st.session_state:
-            st.session_state.num_items = 1
-
-        # Botones para agregar o quitar filas de ítems de forma interactiva
-        col_btn1, col_btn2 = st.columns(2)
-        with col_btn1:
-            if st.form_submit_button("➕ Agregar otro ítem"):
-                st.session_state.num_items += 1
-        with col_btn2:
-            if st.session_state.num_items > 1:
-                if st.form_submit_button("➖ Quitar último ítem"):
-                    st.session_state.num_items -= 1
+        st.markdown("Configura los ítems de tu cotización:")
 
         items_data = []
         for i in range(st.session_state.num_items):
             st.markdown(f"--- **Ítem {i+1}**")
-            desc = st.text_area(f"Descripción Técnica - Ítems {i+1}", placeholder="Ej. CAJA DE BIOSEGURIDAD...", key=f"desc_{i}", height=90)
+            desc = st.text_area(f"Descripción Técnica - Ítem {i+1}", placeholder="Ej. CAJA DE BIOSEGURIDAD...", key=f"desc_{i}", height=80)
             c_col1, c_col2, c_col3 = st.columns(3)
             with c_col1:
                 cant = st.number_input(f"Cantidad {i+1}", min_value=1.0, value=1.0, step=1.0, key=f"cant_{i}")
@@ -106,8 +96,7 @@ with st.form("cotizacion_form"):
 
     with tab4:
         st.subheader("Cuentas Bancarias y Representante Legal")
-        banco_bbva_cta = st.text_input("CTA. CTE. SOLES BBVA", value="0011 01110100059448")
-        banco_bbva_cci = st.text_input("CCI SOLES BBVA", value="011 111 000100059448 29")
+        # Se eliminaron los campos de BBVA y se mantiene BCP
         banco_bcp_cta = st.text_input("CTA. CTE. SOLES BCP", value="192 2661210 0 08")
         banco_bcp_cci = st.text_input("CCI SOLES BCP", value="002 192 002661210008 36")
         
@@ -124,50 +113,71 @@ with st.form("cotizacion_form"):
     st.markdown("<br>", unsafe_allow_html=True)
     submitted = st.form_submit_button("🚀 Generar y Descargar Cotización en PDF")
 
+# Botones para agregar o quitar filas fuera del formulario
+st.markdown("---")
+st.write("### Control de Ítems")
+col_btn1, col_btn2 = st.columns(2)
+with col_btn1:
+    if st.button("➕ Agregar otro ítem"):
+        st.session_state.num_items += 1
+        st.rerun()
+with col_btn2:
+    if st.session_state.num_items > 1:
+        if st.button("➖ Quitar último ítem"):
+            st.session_state.num_items -= 1
+            st.rerun()
+
 if submitted:
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
         pdf_path = tmp_file.name
 
-    doc = SimpleDocTemplate(pdf_path, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    # Márgenes optimizados para aprovechar mejor la hoja
+    doc = SimpleDocTemplate(pdf_path, pagesize=letter, rightMargin=25, leftMargin=25, topMargin=25, bottomMargin=25)
     story = []
     styles = getSampleStyleSheet()
 
-    header_left_style = ParagraphStyle('HeaderLeft', parent=styles['Normal'], fontSize=8.5, leading=11, textColor=colors.HexColor("#333333"))
-    header_right_style = ParagraphStyle('HeaderRight', parent=styles['Normal'], fontSize=11, leading=14, fontName="Helvetica-Bold", textColor=colors.HexColor("#A81C1C"), alignment=2)
-    normal_style = ParagraphStyle('NormalStyle', parent=styles['Normal'], fontSize=8.5, leading=11)
-    bold_style = ParagraphStyle('BoldStyle', parent=styles['Normal'], fontSize=8.5, leading=11, fontName="Helvetica-Bold")
-    table_header_style = ParagraphStyle('TableHead', parent=styles['Normal'], fontSize=8.5, leading=11, fontName="Helvetica-Bold", textColor=colors.white, alignment=1)
+    # Estilos optimizados y compactos
+    header_left_style = ParagraphStyle('HeaderLeft', parent=styles['Normal'], fontSize=8, leading=10, textColor=colors.HexColor("#333333"))
+    header_right_style = ParagraphStyle('HeaderRight', parent=styles['Normal'], fontSize=10, leading=13, fontName="Helvetica-Bold", textColor=colors.HexColor("#A81C1C"), alignment=2)
+    normal_style = ParagraphStyle('NormalStyle', parent=styles['Normal'], fontSize=8, leading=10)
+    bold_style = ParagraphStyle('BoldStyle', parent=styles['Normal'], fontSize=8, leading=10, fontName="Helvetica-Bold")
+    
+    # Estilo más pequeño y compacto para las condiciones de venta
+    cond_normal_style = ParagraphStyle('CondNormal', parent=styles['Normal'], fontSize=7, leading=9, textColor=colors.HexColor("#333333"))
+    cond_bold_style = ParagraphStyle('CondBold', parent=styles['Normal'], fontSize=7, leading=9, fontName="Helvetica-Bold", textColor=colors.HexColor("#333333"))
+
+    table_header_style = ParagraphStyle('TableHead', parent=styles['Normal'], fontSize=8, leading=10, fontName="Helvetica-Bold", textColor=colors.white, alignment=1)
 
     # Membrete Superior
     empresa_info = f"<b>NEWTECH HOSPI S.A.C.</b><br/>RUC: {ruc_empresa}<br/>VENTANILLA - CALLAO<br/>Email: ventas@hospitechperu.com / nthospi@gmail.com"
     doc_info = f"<b>{nro_coti}</b><br/><br/>{fecha_emision}"
 
-    t_top = Table([[Paragraph(empresa_info, header_left_style), Paragraph(doc_info, header_right_style)]], colWidths=[330, 222])
+    t_top = Table([[Paragraph(empresa_info, header_left_style), Paragraph(doc_info, header_right_style)]], colWidths=[350, 212])
     t_top.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 10),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
     ]))
     story.append(t_top)
-    story.append(Spacer(1, 5))
+    story.append(Spacer(1, 4))
 
     # Datos del Cliente
     client_data = [
         [Paragraph(f"<b>CLIENTE:</b> {cliente_nombre}", normal_style), Paragraph(f"<b>VENTA:</b> {vendedor}", normal_style)],
         [Paragraph(f"<b>REFERENCIA:</b> {referencia}", normal_style), Paragraph(f"<b>CELULAR:</b> {celular_vendedor}", normal_style)]
     ]
-    t_client = Table(client_data, colWidths=[360, 192])
+    t_client = Table(client_data, colWidths=[370, 192])
     t_client.setStyle(TableStyle([
         ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor("#999999")),
         ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CCCCCC")),
-        ('TOPPADDING', (0,0), (-1,-1), 5),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
         ('LEFTPADDING', (0,0), (-1,-1), 6),
     ]))
     story.append(t_client)
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 6))
 
     story.append(Paragraph("Nos dirigimos a ustedes a fin de saludarlos y remitir la presente cotización por lo siguiente:", normal_style))
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 4))
 
     # Tabla de Ítems Dinámica
     table_items = [
@@ -182,17 +192,16 @@ if submitted:
         desc_para = Paragraph(item["desc"].replace('\n', '<br/>'), normal_style)
         table_items.append([nro_item_str, desc_para, f"{int(item['cant']) if item['cant'].is_integer() else item['cant']}", item["und"], f"S/{item['p_u']:,.2f}", f"S/{subtotal_item:,.2f}"])
 
-    t_items = Table(table_items, colWidths=[35, 302, 45, 35, 55, 80])
+    t_items = Table(table_items, colWidths=[30, 317, 45, 35, 55, 80])
     
-    # Estilo dinámico para los ítems según la cantidad de filas
     ts = [
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#1A2B4C")),
         ('ALIGN', (0,0), (-1,-1), 'CENTER'),
         ('ALIGN', (1,1), (1,-1), 'LEFT'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#999999")),
-        ('TOPPADDING', (0,0), (-1,-1), 6),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
     ]
     t_items.setStyle(TableStyle(ts))
     story.append(t_items)
@@ -201,47 +210,45 @@ if submitted:
     total_data = [
         ["", "", "", "", "MONTO TOTAL:", f"S/{monto_total_general:,.2f}"]
     ]
-    t_total = Table(total_data, colWidths=[35, 302, 45, 35, 55, 80])
+    t_total = Table(total_data, colWidths=[30, 317, 45, 35, 55, 80])
     t_total.setStyle(TableStyle([
         ('BACKGROUND', (4,0), (5,0), colors.HexColor("#EFEFEF")),
         ('FONTNAME', (4,0), (-1,-1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,-1), 8.5),
+        ('FONTSIZE', (0,0), (-1,-1), 8),
         ('ALIGN', (4,0), (4,0), 'RIGHT'),
         ('ALIGN', (5,0), (5,0), 'CENTER'),
         ('GRID', (4,0), (-1,-1), 0.5, colors.HexColor("#999999")),
-        ('TOPPADDING', (0,0), (-1,-1), 5),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
     ]))
     story.append(t_total)
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 6))
 
-    # Condiciones de Venta
+    # Condiciones de Venta con letra más pequeña y compacta
     cond_data = [
-        [Paragraph("<b>CONDICIONES DE VENTA:</b>", bold_style), Paragraph("", normal_style)],
-        [Paragraph("Precio", bold_style), Paragraph(": Los precios están dados en SOLES, incluyen el IGV.", normal_style)],
-        [Paragraph("Tiempo de entrega", bold_style), Paragraph(f": {tiempo_entrega}", normal_style)],
-        [Paragraph("Forma de pago", bold_style), Paragraph(f": {forma_pago}", normal_style)],
-        [Paragraph("Garantía", bold_style), Paragraph(f": {garantia}", normal_style)],
-        [Paragraph("Validez de oferta", bold_style), Paragraph(f": {validez_oferta}", normal_style)],
-        [Paragraph("Nota 1", bold_style), Paragraph(f": {nota_1}", normal_style)],
-        [Paragraph("Nota 2", bold_style), Paragraph(f": {nota_2}", normal_style)],
-        [Paragraph("Nota 3", bold_style), Paragraph(f": {nota_3}", normal_style)],
-        [Paragraph("NOTA 4", bold_style), Paragraph(f": {nota_4}", normal_style)],
+        [Paragraph("<b>CONDICIONES DE VENTA:</b>", cond_bold_style), Paragraph("", cond_normal_style)],
+        [Paragraph("Precio", cond_bold_style), Paragraph(": Los precios están dados en SOLES, incluyen el IGV.", cond_normal_style)],
+        [Paragraph("Tiempo de entrega", cond_bold_style), Paragraph(f": {tiempo_entrega}", cond_normal_style)],
+        [Paragraph("Forma de pago", cond_bold_style), Paragraph(f": {forma_pago}", cond_normal_style)],
+        [Paragraph("Garantía", cond_bold_style), Paragraph(f": {garantia}", cond_normal_style)],
+        [Paragraph("Validez de oferta", cond_bold_style), Paragraph(f": {validez_oferta}", cond_normal_style)],
+        [Paragraph("Nota 1", cond_bold_style), Paragraph(f": {nota_1}", cond_normal_style)],
+        [Paragraph("Nota 2", cond_bold_style), Paragraph(f": {nota_2}", cond_normal_style)],
+        [Paragraph("Nota 3", cond_bold_style), Paragraph(f": {nota_3}", cond_normal_style)],
+        [Paragraph("NOTA 4", cond_bold_style), Paragraph(f": {nota_4}", cond_normal_style)],
     ]
-    t_cond = Table(cond_data, colWidths=[100, 452])
+    t_cond = Table(cond_data, colWidths=[90, 472])
     t_cond.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
         ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#EFEFEF")),
-        ('TOPPADDING', (0,0), (-1,-1), 3),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+        ('TOPPADDING', (0,0), (-1,-1), 2),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
     ]))
     story.append(t_cond)
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 6))
 
-    # Cuentas Bancarias y Firmas
+    # Cuentas Bancarias (Solo BCP) y Firmas optimizadas
     banco_text = f"""
-    <b>CTA. CORRIENTE SOLES BBVA:</b> {banco_bbva_cta}<br/>
-    <b>CODIGO. CCI. SOLES BBVA:</b> {banco_bbva_cci}<br/>
     <b>CTA. CORRIENTE SOLES BCP:</b> {banco_bcp_cta}<br/>
     <b>CODIGO. CCI. SOLES BCP:</b> {banco_bcp_cci}<br/>
     <b>TELÉFONO:</b> {telefonos_contacto} | <b>R.U.C.:</b> {ruc_empresa}
@@ -257,17 +264,17 @@ if submitted:
     footer_data = [
         [Paragraph(banco_text, normal_style), Paragraph(firma_text, ParagraphStyle('Firma', parent=normal_style, alignment=1))]
     ]
-    t_footer = Table(footer_data, colWidths=[330, 222])
+    t_footer = Table(footer_data, colWidths=[330, 232])
     t_footer.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('TOPPADDING', (0,0), (-1,-1), 4),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('TOPPADDING', (0,0), (-1,-1), 2),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
     ]))
     story.append(t_footer)
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 4))
 
-    # Pie de página final
-    pie_text = f"<font size=7 color='#666666'><i>{pie_garantia_texto}</i></font>"
+    # Pie de página final más compacto
+    pie_text = f"<font size=6.5 color='#666666'><i>{pie_garantia_texto}</i></font>"
     story.append(Paragraph(pie_text, ParagraphStyle('Pie', parent=normal_style, alignment=1)))
 
     doc.build(story)
