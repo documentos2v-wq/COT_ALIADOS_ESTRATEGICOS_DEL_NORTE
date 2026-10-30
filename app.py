@@ -249,3 +249,38 @@ with col_totales:
                 <span style="font-weight: bold; color: #111; font-size: 16px;">Total:</span>
                 <span style="font-weight: bold; color: #111; font-size: 16px;">PEN {subtotal_general:.2f}</span>
             </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+st.write("")
+
+# Botones finales de comentarios, borrado y descarga en PDF
+col_com, col_space, col_borrar, col_crear = st.columns([1.5, 2.5, 1.2, 1.5])
+
+with col_com:
+    if st.button("💬 Enviar comentarios"):
+        st.info("Formulario de comentarios abierto.")
+
+with col_borrar:
+    if st.button("Borrar cotización"):
+        st.session_state.articulos = [{'cant': 1, 'cod': '', 'desc': '', 'precio': 0.0, 'impuesto': 'IGV'}]
+        st.session_state.descuentos = []
+        st.session_state.envios = []
+        st.rerun()
+
+with col_crear:
+    # Generar el PDF en memoria para que aparezca el botón de descarga directa
+    pdf_buffer = generar_pdf(
+        nombre_empresa, num_cot, fecha_cot, cond_pago, dias_pago, 
+        vendedor, dir_facturacion, dir_envio, 
+        st.session_state.articulos, st.session_state.descuentos, st.session_state.envios, 
+        subtotal_general
+    )
+    
+    st.download_button(
+        label="📥 Descargar PDF",
+        data=pdf_buffer,
+        file_name=f"Cotizacion_{num_cot}.pdf",
+        mime="application/pdf",
+        type="primary"
+    )
